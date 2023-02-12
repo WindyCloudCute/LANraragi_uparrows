@@ -26,7 +26,7 @@ sub do_search {
     my $logger = get_logger( "Search Engine", "lanraragi" );
 
     unless ( $redis->exists("LAST_JOB_TIME") ) {
-        $logger->error("Search engine is not initialized yet. Please wait a few seconds.");
+        $logger->error("搜索引擎尚未初始化。请等待几秒钟.");
         return ( -1, -1, () );
     }
 
