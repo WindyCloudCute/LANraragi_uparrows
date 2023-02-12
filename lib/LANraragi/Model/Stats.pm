@@ -136,7 +136,7 @@ sub build_stat_hashes {
     }
 
     # Add a stamp to the stats hash to indicate when it was last updated
-    $redistx->set( "LAST_JOB_TIME", time() );
+    $redistx->hset( "LAST_JOB_TIME", "time",time() );
 
     $redistx->exec;
     $logger->info("Stat indexes built! ($archive_count archives)");
