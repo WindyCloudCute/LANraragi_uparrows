@@ -13,6 +13,11 @@ LANraragi_CN
 
 用于漫画存档的开源服务器，使用 Mojolicious + Redis 运行，这是LANraragi的汉化版本，相较与原版汉化了界面，修复了chrome的js报错，并且使用root账户代替koyomi解决群晖nas上面的无法访问挂载文件夹/home/koyomi/lanraragi/content目录的问题,我构建了一个docker镜像，如果你是docker用户，你需要将漫画文件夹挂载到/root/lanraragi/content，数据库挂载到/root/lanraragi/database。
 
+
+#### docker用户使用指南
+
+docker用户可以自行切换到 windycloud/lanraragi_cn:latest 镜像即可安装完成
+
 #### 💬 在 [Discord](https://discord.gg/aRQxtbg) 或 [GitHub Discussions](https://github.com/Difegue/LANraragi/discussions) 与其他 LANraragi 用户交流
 
 #### [📄 文档[英文]](https://sugoi.gitbook.io/lanraragi/v/dev) | [⏬ 下载](https://github.com/Difegue/LANraragi/releases/latest) | [🎞 演示](https://lrr.tvc-16.science) | [🪟🌃 Windows 版本](https://nightly.link/Difegue/LANraragi/workflows/push-continous-delivery/dev) | [💵 赞助以支持项目发展](https://ko-fi.com/T6T2UP5N)
