@@ -75,7 +75,7 @@ Batch.showOverride = function () {
  * Check untagged archives, using the matching API endpoint.
  */
 Batch.checkUntagged = function () {
-    Server.callAPI("api/archives/untagged", "GET", null, "获取未加标签的存档时出错！",
+    Server.callAPI("api/archives/untagged", "GET", null, "获取未加标签的存档时出错!",
         (data) => {
             // Check untagged archives
             data.forEach((id) => {
@@ -102,7 +102,6 @@ Batch.startBatchCheck = function () {
             showCancelButton: true,
             focusConfirm: false,
             confirmButtonText: "是的，删除!",
-            cancelButtonText: "取消",
             reverseButtons: true,
             confirmButtonColor: "#d33",
         }).then((result) => {
@@ -189,7 +188,7 @@ Batch.startBatch = function () {
         }
 
         if (timeout !== 0) {
-            $("#log-container").append(`暂停 ${timeout} 秒.\n`);
+            $("#log-container").append(`休眠 ${timeout} 秒.\n`);
         }
         // Wait timeout and pass next archive
         setTimeout(() => {

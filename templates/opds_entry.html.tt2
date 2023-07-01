@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<entry xmlns="http://www.w3.org/2005/Atom"
+<entry xmlns="http://www.w3.org/2005/Atom" 
     xmlns:thr="http://purl.org/syndication/thread/1.0"
-    xmlns:dcterms="http://purl.org/dc/terms/"
-    xmlns:opds="http://opds-spec.org/2010/catalog" 
+    xmlns:dcterms="http://purl.org/dc/terms/" 
+    xmlns:opds="http://opds-spec.org/2010/catalog"
     xmlns:pse="http://vaemendis.net/opds-pse/ns" 
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:schema="http://schema.org/">
@@ -22,9 +22,9 @@
     <dcterms:publisher>[% arc.circle %]</dcterms:publisher>
     <dcterms:issued>[% arc.event %]</dcterms:issued>
     [% IF arc.isnew == "false" %]
-        <category term="档案"/>
+    <category term="Archive" />
     [% ELSE %]
-        <category term="新档案"/>
+    <category term="New Archive" />
     [% END %]
     <summary>[% arc.tags %]</summary>
 
@@ -33,7 +33,9 @@
     <link rel="http://opds-spec.org/acquisition" href="/api/archives/[% arc.arcid %]/download[% api_key_query %]" title="Download/Read"
         type="[% arc.mimetype %]" />
     <link rel="http://vaemendis.net/opds-pse/stream" type="image/jpeg"
-        href="/api/opds/[% arc.arcid %]/pse?page={pageNumber}[% api_key_and %]" pse:count="[% arc.pagecount %]" [% IF arc.progress %] pse:lastRead="[% arc.progress %]" [% END %]/>
+        href="/api/opds/[% arc.arcid %]/pse?page={pageNumber}[% api_key_and %]" pse:count="[% arc.pagecount %]" 
+        [% IF arc.progress %] pse:lastRead="[% arc.progress %]" [% END %] 
+        [% IF arc.lastreaddate %] pse:lastReadDate="[% arc.lastreaddate %]" [% END %] />
     <link type="text/html" rel="alternate" title="Open in LANraragi" href="/reader?id=[% arc.arcid %][% api_key_and %]" />
 
 </entry>

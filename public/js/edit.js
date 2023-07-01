@@ -22,7 +22,7 @@ Edit.initializeAll = function () {
     // Hide tag input while statistics load
     Edit.hideTags();
 
-    Server.callAPI("/api/database/stats?minweight=2", "GET", null, "无法加载标签统计信息",
+    Server.callAPI("/api/database/stats?minweight=2", "GET", null, "无法加载Tags统计信息",
         (data) => {
             Edit.suggestions = data.reduce((res, tag) => {
                 let label = tag.text;
@@ -75,7 +75,7 @@ Edit.showHelp = function () {
     LRR.toast({
         toastId: "pluginHelp",
         heading: "关于插件",
-        text: "您可以使用插件自动获取此存档的元数据，只需从下拉列表中选择一个插件，然后点击 [开始!] 按钮，一些插件可能会需要您提供一些可选的参数，如果需要您提供参数，将会出现一个文本框来输入需要的参数。",
+        text: "您可以使用插件自动获取此存档的元数据。 <br/> 只需从下拉菜单中选择一个插件即可点击！ <br/> 一些插件可能会提供可选的参数供您指定。如果是这样，将提供一个文本框来输入所述参数。",
         icon: "info",
         hideAfter: 33000,
     });
@@ -106,18 +106,18 @@ Edit.saveMetadata = function () {
     formData.append("title", $("#title").val());
 
     return fetch(`api/archives/${id}/metadata`, { method: "PUT", body: formData })
-        .then((response) => (response.ok ? response.json() : { success: 0, error: "响应不正常" }))
+        .then((response) => (response.ok ? response.json() : { success: 0, error: "反应不好" }))
         .then((data) => {
             if (data.success) {
                 LRR.toast({
-                    heading: "元数据已保存！",
+                    heading: "元数据保存了！",
                     icon: "success",
                 });
             } else {
                 throw new Error(data.message);
             }
         })
-        .catch((error) => LRR.showErrorToast("保存存档数据时出错 :", error))
+        .catch((error) => LRR.showErrorToast("保存存档数据时错误：", error))
         .finally(() => {
             Edit.showTags();
         });
@@ -125,12 +125,11 @@ Edit.saveMetadata = function () {
 
 Edit.deleteArchive = function () {
     LRR.showPopUp({
-        text: "您确定要删除此存档吗？",
+        text: "您确定要删除此档案吗?",
         icon: "warning",
         showCancelButton: true,
         focusConfirm: false,
         confirmButtonText: "是的，删除它!",
-        cancelButtonText: "取消",
         reverseButtons: true,
         confirmButtonColor: "#d33",
     }).then((result) => {

@@ -17,7 +17,8 @@ Those variables were introduced for the Homebrew package, but they can be declar
 * `LRR_TEMP_DIRECTORY` - Temporary directory override. If this variable is set to a path, the temporary folder will be there instead of `/public/temp`.
 * `LRR_LOG_DIRECTORY` - Log directory override. Changes the location of the `log` folder.
 * `LRR_FORCE_DEBUG` - Debug Mode override. This will force Debug Mode to be enabled regardless of the user setting.
-* `LRR_NETWORK` - Network Interface. See the dedicated page in Advanced Operations.
+* `LRR_NETWORK` - Network Interface. See the dedicated page in Advanced Operations.  
+* `LRR_REDIS_ADDRESS` - Redis adress override. This has priority over the `redis_address` specified in `lrr.conf`.  
 
 ## Coding Style
 
@@ -161,7 +162,14 @@ LRR uses three databases to store its own data, and a fourth for the Minion Job 
 The base architecture is as follows:
 
 ```
--Redis Database 1 - Archive data
+-Redis Database 1 - Archive & category data
+|
+|- SET_xxxxxxxxxx <- A Category.
+|  |- archives <- Serialized array of IDs this category holds (if static)
+|  |- search <- Search predicate of this category (if dynamic)
+|  |- name <- Name of the Category, as set by the User
+|  |- last_used <- Timestamp of the last time the category was used in a search
+|  |- pinned <- Whether the category is pinned in the index or not
 |
 |- **************************************** <- 40-character long ID for every logged archive
 |  |- tags <- Saved tags
@@ -182,8 +190,6 @@ The base architecture is as follows:
 |- LRR_TOTALPAGESTAT <- Total pages read
 |
 |- LRR_FILEMAP <- Shinobu Filemap, maps IDs in the database to their location on the filesystem
-|
-|- SET_xxxxxxxxxx <- A Category.
 |
 |- LRR_CONFIG <- Configuration keys, usually set through the LRR Configuration page.
 |  |- htmltitle

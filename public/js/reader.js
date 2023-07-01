@@ -43,18 +43,46 @@ Reader.initializeAll = function () {
         window.location.href = `./reader?id=${Reader.id}&force_reload`;
     });
     $(document).on("click.edit-metadata", "#edit-archive", () => LRR.openInNewTab(`./edit?id=${Reader.id}`));
-    $(document).on("click.add-category", "#add-category", () => Server.addArchiveToCategory(Reader.id, $("#category").val()));
+    $(document).on("click.delete-archive", "#delete-archive", () => {
+        LRR.closeOverlay();
+        LRR.showPopUp({
+            text: "Are you sure you want to delete this archive?",
+            icon: "warning",
+            showCancelButton: true,
+            focusConfirm: false,
+            confirmButtonText: "Yes, delete it!",
+            reverseButtons: true,
+            confirmButtonColor: "#d33",
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Server.deleteArchive(Reader.id, () => { document.location.href = "./"; });
+            }
+        });
+    });
+    $(document).on("click.add-category", "#add-category", () => {
+        if ($("#category").val() === "" || $(`#archive-categories a[data-id="${$("#category").val()}"]`).length !== 0) { return; }
+        Server.addArchiveToCategory(Reader.id, $("#category").val());
+
+        const html = `<div class="gt" style="font-size:14px; padding:4px">
+            <a href="/?c=${$("#category").val()}">
+            <span class="label">${$("#category option:selected").text()}</span>
+            <a href="#" class="remove-category" data-id="${$("#category").val()}"
+                style="margin-left:4px; margin-right:2px">×</a>
+        </a>`;
+
+        $("#archive-categories").append(html);
+    });
+    $(document).on("click.remove-category", ".remove-category", (e) => {
+        Server.removeArchiveFromCategory(Reader.id, $(e.target).attr("data-id"));
+        $(e.target).parent().remove();
+    });
     $(document).on("click.set-thumbnail", "#set-thumbnail", () => Server.callAPI(`/api/archives/${Reader.id}/thumbnail?page=${Reader.currentPage + 1}`,
-        "PUT", `已将第 ${Reader.currentPage + 1} 页设置为缩略图!`, "更新缩略图出现错误!", null));
+        "PUT", `Successfully set page ${Reader.currentPage + 1} as the thumbnail!`, "Error updating thumbnail!", null));
 
     $(document).on("click.thumbnail", ".quick-thumbnail", (e) => {
         LRR.closeOverlay();
         const pageNumber = +$(e.target).closest("div[page]").attr("page");
-        if (Reader.infiniteScroll) {
-            $("#display img").get(pageNumber).scrollIntoView({ behavior: "smooth" });
-        } else {
-            Reader.goToPage(pageNumber);
-        }
+        Reader.goToPage(pageNumber);
     });
 
     // Apply full-screen utility
@@ -88,6 +116,7 @@ Reader.initializeAll = function () {
             }
 
             $("#archive-title").html(title);
+            $("#archive-title-overlay").html(title);
             if (data.pagecount) { $(".max-page").html(data.pagecount); }
             document.title = title;
 
@@ -117,11 +146,23 @@ Reader.loadImages = function () {
             Reader.maxPage = Reader.pages.length - 1;
             $(".max-page").html(Reader.pages.length);
 
-            $("#img").on("load", Reader.updateMetadata);
+            // Choices in order for page picking:
+            // * p is in parameters and is not the first page
+            // * progress is tracked and is not the last page
+            // * first page
+            // This allows for bookmarks to trump progress
+            // when there's no parameter, null is coerced to 0 so it becomes -1
+            Reader.currentPage = Reader.currentPage || (
+                !Reader.ignoreProgress && Reader.progress < Reader.maxPage
+                    ? Reader.progress
+                    : 0
+            );
 
             if (Reader.infiniteScroll) {
                 Reader.initInfiniteScrollView();
             } else {
+                $("#img").on("load", Reader.updateMetadata);
+
                 // when click left or right img area change page
                 $(document).on("click", (event) => {
                     // check click Y position is in img Y area
@@ -134,18 +175,6 @@ Reader.loadImages = function () {
                         }
                     }
                 });
-
-                // when there's no parameter, null is coerced to 0 so it becomes -1
-                Reader.currentPage = Reader.currentPage || (
-                    !Reader.ignoreProgress && Reader.progress < Reader.maxPage
-                        ? Reader.progress
-                        : 0
-                );
-                // Choices in order for page picking:
-                // * p is in parameters and is not the first page
-                // * progress is tracked and is not the last page
-                // * first page
-                // This allows for bookmarks to trump progress
 
                 $(".current-page").each((_i, el) => $(el).html(Reader.currentPage + 1));
                 Reader.goToPage(Reader.currentPage);
@@ -218,19 +247,61 @@ Reader.initializeSettings = function () {
 Reader.initInfiniteScrollView = function () {
     $("body").addClass("infinite-scroll");
     $("#Map").remove();
+    $("#img_doublepage").remove();
     $(".reader-image").first().attr("src", Reader.pages[0]);
+
+    // Disable other options that don't work with infinite scroll
+    Reader.mangaMode = false;
+    Reader.doublePageMode = false;
+
+    // Create an observer to update progress when a new page is scrolled in
+    let allImagesLoaded = false;
+    const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && allImagesLoaded) {
+            // Find the entry in the list of images
+            const index = entries[0].target.id.replace("page-", "");
+            // Convert to int
+            const page = parseInt(index, 10);
+            // Avoid double progress updates
+            if (Reader.currentPage !== page) {
+                Reader.currentPage = page;
+                Reader.updateProgress();
+            }
+        }
+    }, { threshold: 0.8 });
 
     Reader.pages.slice(1).forEach((source) => {
         const img = new Image();
         img.src = source;
+        img.id = `page-${Reader.pages.indexOf(source)}`;
         img.loading = "lazy";
         $(img).addClass("reader-image");
         $("#display").append(img);
+        observer.observe(img);
     });
 
     $("#i3").removeClass("loading");
-    $(document).on("click.infinite-scroll-map", "#display .reader-image", () => Reader.changePage(1));
+    $(document).on("click.infinite-scroll-map", "#display .reader-image", (event) => {
+        // is click X position is left on screen or right
+        if (event.pageX < $(window).width() / 2) {
+            Reader.changePage(-1);
+        } else {
+            Reader.changePage(1);
+        }
+    });
+
     Reader.applyContainerWidth();
+
+    // Wait for the pages to load before scrolling to the current page
+    const images = $("#display .reader-image");
+    let loaded = 0;
+    images.on("load", () => {
+        loaded += 1;
+        if (loaded === images.length) {
+            allImagesLoaded = true;
+            Reader.goToPage(Reader.currentPage);
+        }
+    });
 };
 
 Reader.handleShortcuts = function (e) {
@@ -396,57 +467,66 @@ Reader.updateMetadata = function () {
 Reader.goToPage = function (page) {
     Reader.previousPage = Reader.currentPage;
     Reader.currentPage = Math.min(Reader.maxPage, Math.max(0, +page));
-
     Reader.showingSinglePage = false;
-    $("#img_doublepage").attr("src", "");
-    $("#display").removeClass("double-mode");
-    if (Reader.doublePageMode && Reader.currentPage > 0 && Reader.currentPage < Reader.maxPage) {
-        // Composite an image and use that as the source
-        const img1 = Reader.loadImage(Reader.currentPage);
-        const img2 = Reader.loadImage(Reader.currentPage + 1);
-        // If w > h on one of the images(widespread), set canvasdata to the first image only
-        if (img1.naturalWidth > img1.naturalHeight || img2.naturalWidth > img2.naturalHeight) {
-            // Depending on whether we were going forward or backward, display img1 or img2
-            const wideSrc = Reader.previousPage > Reader.currentPage ? img2.src : img1.src;
-            $("#img").attr("src", wideSrc);
-            Reader.showingSinglePage = true;
-        } else {
-            if (Reader.mangaMode) {
-                $("#img").attr("src", img2.src);
-                $("#img_doublepage").attr("src", img1.src);
-            } else {
-                $("#img").attr("src", img1.src);
-                $("#img_doublepage").attr("src", img2.src);
-            }
-            $("#display").addClass("double-mode");
-        }
+
+    if (Reader.infiniteScroll) {
+        $("#display img").get(Reader.currentPage).scrollIntoView({ behavior: "smooth" });
     } else {
-        const img = Reader.loadImage(Reader.currentPage);
-        $("#img").attr("src", img.src);
-        Reader.showingSinglePage = true;
+        $("#img_doublepage").attr("src", "");
+        $("#display").removeClass("double-mode");
+        if (Reader.doublePageMode && Reader.currentPage > 0
+            && Reader.currentPage < Reader.maxPage) {
+            // Composite an image and use that as the source
+            const img1 = Reader.loadImage(Reader.currentPage);
+            const img2 = Reader.loadImage(Reader.currentPage + 1);
+            // If w > h on one of the images(widespread), set canvasdata to the first image only
+            if (img1.naturalWidth > img1.naturalHeight || img2.naturalWidth > img2.naturalHeight) {
+                // Depending on whether we were going forward or backward, display img1 or img2
+                const wideSrc = Reader.previousPage > Reader.currentPage ? img2.src : img1.src;
+                $("#img").attr("src", wideSrc);
+                Reader.showingSinglePage = true;
+            } else {
+                if (Reader.mangaMode) {
+                    $("#img").attr("src", img2.src);
+                    $("#img_doublepage").attr("src", img1.src);
+                } else {
+                    $("#img").attr("src", img1.src);
+                    $("#img_doublepage").attr("src", img2.src);
+                }
+                $("#display").addClass("double-mode");
+            }
+        } else {
+            const img = Reader.loadImage(Reader.currentPage);
+            $("#img").attr("src", img.src);
+            Reader.showingSinglePage = true;
+        }
+
+        Reader.preloadImages();
+        Reader.applyContainerWidth();
+
+        Reader.currentPageLoaded = false;
+        // display overlay if it takes too long to load a page
+        setTimeout(() => {
+            if (!Reader.currentPageLoaded) { $("#i3").addClass("loading"); }
+        }, 500);
+
+        // update full image link
+        $("#imgLink").attr("href", Reader.pages[Reader.currentPage]);
+
+        // scroll to top
+        window.scrollTo(0, 0);
     }
 
-    Reader.preloadImages();
-    Reader.applyContainerWidth();
+    Reader.updateProgress();
+};
 
-    Reader.currentPageLoaded = false;
-    // display overlay if it takes too long to load a page
-    setTimeout(() => {
-        if (!Reader.currentPageLoaded) { $("#i3").addClass("loading"); }
-    }, 500);
-
-    // update full image link
-    $("#imgLink").attr("href", Reader.pages[Reader.currentPage]);
-
+Reader.updateProgress = function () {
     // Send an API request to update progress on the server
     if (Reader.trackProgressLocally) {
         localStorage.setItem(`${Reader.id}-reader`, Reader.currentPage + 1);
     } else {
         Server.callAPI(`api/archives/${Reader.id}/progress/${Reader.currentPage + 1}`, "PUT", null, "更新阅读进度时出错!", null);
     }
-
-    // scroll to top
-    window.scrollTo(0, 0);
 };
 
 Reader.preloadImages = function () {
@@ -678,16 +758,6 @@ Reader.initializeArchiveOverlay = function () {
 
 Reader.changePage = function (targetPage) {
     let destination;
-    if (Reader.infiniteScroll) {
-        if (targetPage === 1) {
-            destination = $.grep($("#display img"), (img) => $(img).position().top >= $(window).scrollTop())[0];
-        } else {
-            destination = $.grep($("#display img"), (img) => $(img).position().top + (img.naturalHeight / 2) <= $(window).scrollTop()).pop();
-        }
-        if (!destination) { return; }
-        destination.scrollIntoView();
-        return;
-    }
     if (targetPage === "first") {
         destination = Reader.mangaMode ? Reader.maxPage : 0;
     } else if (targetPage === "last") {
@@ -699,7 +769,6 @@ Reader.changePage = function (targetPage) {
         }
         destination = Reader.currentPage + (Reader.mangaMode ? -offset : offset);
     }
-
     Reader.goToPage(destination);
 };
 

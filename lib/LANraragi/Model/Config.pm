@@ -2,7 +2,7 @@ package LANraragi::Model::Config;
 
 use strict;
 use warnings;
-use utf8;
+use utf8::all;
 use Cwd 'abs_path';
 use Redis;
 use Encode;
@@ -16,6 +16,9 @@ my $home = Mojo::Home->new;
 $home->detect;
 
 my $config = Mojolicious::Plugin::Config->register( Mojolicious->new, { file => $home . '/lrr.conf' } );
+if ($ENV{LRR_REDIS_ADDRESS}) {
+    $config->{redis_address} = $ENV{LRR_REDIS_ADDRESS};
+}
 
 # Address and port of your redis instance.
 sub get_redisad { return $config->{redis_address} }
@@ -88,7 +91,7 @@ sub get_redis_conf {
     my $param   = $_[0];
     my $default = $_[1];
 
-    my $redis = get_redis();
+    my $redis = get_redis_config();
 
     if ( $redis->hexists( "LRR_CONFIG", $param ) ) {
 
@@ -96,13 +99,9 @@ sub get_redis_conf {
         my $value = LANraragi::Utils::Database::redis_decode( $redis->hget( "LRR_CONFIG", $param ) );
 
         # Failsafe against blank config values
-        if(defined $value){
-            unless ( $value =~ /^\s*$/ ) {
-                $redis->quit();
-                return $value;
-            }
-        } else{
-            return "";
+        unless ( $value =~ /^\s*$/ ) {
+            $redis->quit();
+            return $value;
         }
     }
     $redis->quit();
@@ -169,7 +168,7 @@ sub get_tagrules {
 }
 
 sub get_htmltitle        { return &get_redis_conf( "htmltitle",       "LANraragi" ) }
-sub get_motd             { return &get_redis_conf( "motd",            "^_^" ) }
+sub get_motd             { return &get_redis_conf( "motd",            "Welcome to this Library running LANraragi!" ) }
 sub get_tempmaxsize      { return &get_redis_conf( "tempmaxsize",     "500" ) }
 sub get_pagesize         { return &get_redis_conf( "pagesize",        "100" ) }
 sub enable_pass          { return &get_redis_conf( "enablepass",      "1" ) }
@@ -186,5 +185,6 @@ sub enable_dateadded     { return &get_redis_conf( "usedateadded",    "1" ) }
 sub use_lastmodified     { return &get_redis_conf( "usedatemodified", "0" ) }
 sub enable_cryptofs      { return &get_redis_conf( "enablecryptofs",  "0" ) }
 sub get_hqthumbpages     { return &get_redis_conf( "hqthumbpages",    "0" ) }
+sub get_replacedupe      { return &get_redis_conf( "replacedupe",     "0" ) }
 
 1;

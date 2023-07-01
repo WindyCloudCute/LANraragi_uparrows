@@ -293,7 +293,7 @@ LRR.showPopUp = function (c) {
     }
 
     if (c.icon === "warning" && !c.title) {
-        c.title = "这将会永久丢失您的档案!\n<font color=\"\#FF0000\">您确定要这样操作吗?</font>";
+        c.title = "This is a destructive operation!";
     }
     return window.Swal.fire(c);
 };

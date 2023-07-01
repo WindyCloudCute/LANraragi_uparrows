@@ -2,9 +2,12 @@ package LANraragi::Utils::Archive;
 
 use strict;
 use warnings;
-use utf8;
+
 
 use feature qw(say);
+use feature qw(signatures);
+no warnings 'experimental::signatures';
+
 use Time::HiRes qw(gettimeofday);
 use File::Basename;
 use File::Path qw(remove_tree make_path);
@@ -36,12 +39,10 @@ sub is_pdf {
     return ( $suffix eq ".pdf" );
 }
 
-# generate_thumbnail(original_image, thumbnail_location, use_hq)
 # use ImageMagick to make a thumbnail, height = 500px (view in index is 280px tall)
 # If use_hq is true, the scale algorithm will be used instead of sample.
-sub generate_thumbnail {
+sub generate_thumbnail ( $orig_path, $thumb_path, $use_hq ) {
 
-    my ( $orig_path, $thumb_path, $use_hq ) = @_;
     my $img = Image::Magick->new;
 
     # For JPEG, the size option (or jpeg:size option) provides a hint to the JPEG decoder
@@ -67,12 +68,10 @@ sub generate_thumbnail {
     undef $img;
 }
 
-# extract_archive(path, archive_to_extract, force)
 # Extract the given archive to the given path.
 # This sub won't re-extract files already present in the destination unless force = 1.
-sub extract_archive {
+sub extract_archive ( $destination, $to_extract, $force_extract ) {
 
-    my ( $destination, $to_extract, $force_extract ) = @_;
     my $logger = get_logger( "Archive", "lanraragi" );
     $logger->debug("Fully extracting archive $to_extract");
 
@@ -118,8 +117,8 @@ sub extract_archive {
     return $result_dir;
 }
 
-sub extract_pdf {
-    my ( $destination, $to_extract ) = @_;
+sub extract_pdf ( $destination, $to_extract ) {
+
     my $logger = get_logger( "Archive", "lanraragi" );
 
     # Raw Perl strings won't necessarily work in a terminal command, so we must decode the filepath here
@@ -144,13 +143,11 @@ sub extract_pdf {
     return $destination;
 }
 
-# extract_thumbnail(thumbnaildir, id, page, use_hq)
 # Extracts a thumbnail from the specified archive ID and page. Returns the path to the thumbnail.
 # Non-cover thumbnails land in a folder named after the ID. Specify page=0 if you want the cover.
 # Thumbnails will be generated at low quality by default unless you specify use_hq=1.
-sub extract_thumbnail {
+sub extract_thumbnail ( $thumbdir, $id, $page, $use_hq ) {
 
-    my ( $thumbdir, $id, $page, $use_hq ) = @_;
     my $logger = get_logger( "Archive", "lanraragi" );
 
     # Another subfolder with the first two characters of the id is used for FS optimization.
@@ -170,13 +167,13 @@ sub extract_thumbnail {
     my @filelist = @$images;
     my $requested_image = $filelist[ $page > 0 ? $page - 1 : 0 ];
 
-    die "Requested image not found" unless $requested_image;
+    die "Requested image not found: $requested_image" unless $requested_image;
     $logger->debug("Extracting thumbnail for $id page $page from $requested_image");
 
     # Extract first image to temp dir
     my $arcimg = extract_single_file( $file, $requested_image, $temppath );
 
-    if ( $page > 0 ) {
+    if ( $page - 1 > 0 ) {
 
         # Non-cover thumbnails land in a dedicated folder.
         $thumbname = "$thumbdir/$subfolder/$id/$page.jpg";
@@ -186,6 +183,7 @@ sub extract_thumbnail {
         # For cover thumbnails, grab the SHA-1 hash for tag research.
         # That way, no need to repeat a costly extraction later.
         my $shasum = shasum( $arcimg, 1 );
+        $logger->debug("Setting thumbnail hash: $shasum");
         $redis->hset( $id, "thumbhash", $shasum );
         $redis->quit();
     }
@@ -205,13 +203,11 @@ sub expand {
     return lc($file);
 }
 
-# get_filelist($archive)
 # Returns a list of all the files contained in the given archive.
-sub get_filelist {
+sub get_filelist($archive) {
 
-    my $archive = $_[0];
-    my @files   = ();
-    my @sizes   = ();
+    my @files = ();
+    my @sizes = ();
 
     if ( is_pdf($archive) ) {
 
@@ -247,21 +243,24 @@ sub get_filelist {
 
     @files = sort { &expand($a) cmp &expand($b) } @files;
 
-    # Move any pages containing "credit" to the end of the array.
-    my @credit_pages     = grep { /credit/i } @files;
-    my @non_credit_pages = grep { !/credit/i } @files;
-    @files = ( @non_credit_pages, @credit_pages );
+    # Move front cover pages to the start of a gallery, and miscellaneous pages such as translator credits to the end.
+    my @cover_pages  = grep { /^(?!.*(back|end|rear|recover|discover)).*cover.*/i } @files;
+    my @credit_pages = grep { /^end_card_save_file|notes\.[^\.]*$|note\.[^\.]*$|^artist_info|credit|999nhnl\./i } @files;
+
+    # Get all the leftover pages
+    my %credit_hash = map { $_ => 1 } @credit_pages;
+    my %cover_hash  = map { $_ => 1 } @cover_pages;
+    my @other_pages = grep { !$credit_hash{$_} && !$cover_hash{$_} } @files;
+    @files = ( @cover_pages, @other_pages, @credit_pages );
 
     # Return files and sizes in a hashref
     return ( \@files, \@sizes );
 }
 
-# is_file_in_archive($archive, $file)
 # Uses libarchive::peek to figure out if $archive contains $file.
 # Returns the exact in-archive path of the file if it exists, undef otherwise.
-sub is_file_in_archive {
+sub is_file_in_archive ( $archive, $wantedname ) {
 
-    my ( $archive, $wantedname ) = @_;
     my $logger = get_logger( "Archive", "lanraragi" );
 
     if ( is_pdf($archive) ) {
@@ -291,12 +290,10 @@ sub is_file_in_archive {
     return $found;
 }
 
-# extract_single_file ($archive, $file, $destination)
 # Extract $file from $archive to $destination and returns the filesystem path it's extracted to.
 # If the file doesn't exist in the archive, this will still create a file, but empty.
-sub extract_single_file {
+sub extract_single_file ( $archive, $filepath, $destination ) {
 
-    my ( $archive, $filepath, $destination ) = @_;
     my $logger = get_logger( "Archive", "lanraragi" );
 
     my $outfile = "$destination/$filepath";
@@ -343,21 +340,17 @@ sub extract_single_file {
     return $outfile;
 }
 
-# extract_file_from_archive($archive, $file)
 # Variant for plugins.
-# Extracts the file with a timestamp to a folder in /temp/plugin.
-sub extract_file_from_archive {
+# Extracts the file to a folder in /temp/plugin.
+sub extract_file_from_archive ( $archive, $filename ) {
 
-    my ( $archive, $filename ) = @_;
-
-    # Timestamp extractions in microseconds
-    my ( $seconds, $microseconds ) = gettimeofday;
-    my $stamp = "$seconds-$microseconds";
-    my $path  = get_temp . "/plugin/$stamp";
-    mkdir get_temp . "/plugin";
+    my $path = get_temp . "/plugin";
     mkdir $path;
 
-    return extract_single_file( $archive, $filename, $path );
+    my $tmp = File::Temp->new( DIR => $path );
+    $tmp->unlink_on_destroy(0);
+
+    return extract_single_file( $archive, $filename, $tmp->filename );
 }
 
 1;

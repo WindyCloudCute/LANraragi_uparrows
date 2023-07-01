@@ -3,14 +3,14 @@ package LANraragi::Plugin::Metadata::EHentai;
 use strict;
 use warnings;
 no warnings 'uninitialized';
-use utf8;
+
 #Plugins can freely use all Perl packages already installed on the system
 #Try however to restrain yourself to the ones already installed for LRR (see tools/cpanfile) to avoid extra installations by the end-user.
 use URI::Escape;
 use Mojo::JSON qw(decode_json encode_json);
 use Mojo::Util qw(html_unescape);
 use Mojo::UserAgent;
-
+use utf8;
 #You can also use the LRR Internal API when fitting.
 use LANraragi::Model::Plugins;
 use LANraragi::Utils::Logging qw(get_plugin_logger);
@@ -33,8 +33,8 @@ sub plugin_info {
         parameters => [
             { type => "string", desc => "在搜索中强制使用语言（由于 EH 限制，日语无法使用）" },
             { type => "bool",   desc => "保存档案名称" },
-            { type => "bool",   desc => "使用缩略图获取（否则使用标题）" },
-            { type => "bool",   desc => "使用标题里的Gid搜索 (否则使用标题)" },
+            { type => "bool",   desc => "首先使用缩略图获取（否则使用标题）" },
+            { type => "bool",   desc => "使用标题的GID搜索（返回标题）" },
             { type => "bool",   desc => "使用 ExHentai（可以在没有星形 cookie 的情况下搜索fjorded内容）" },
             {   type => "bool",
                 desc => "如果可用，请保存原始标题，而不是英文或罗马拼音标题"
@@ -43,7 +43,7 @@ sub plugin_info {
             { type => "bool", desc => "搜索已删除的图库" },
 
         ],
-        oneshot_arg => "E-Hentai 库 URL (将此页面的标题与Tag附加到您的原数据)",
+        oneshot_arg => "E-H Gallery URL (Will attach tags matching this exact gallery to your archive)",
         cooldown    => 4
     );
 
@@ -55,7 +55,7 @@ sub get_tags {
     shift;
     my $lrr_info = shift;                     # Global info hash
     my $ua       = $lrr_info->{user_agent};
-    my ( $lang, $savetitle, $usethumbs, $search_gid, $enablepanda, $jpntitle, $additionaltags, $expunged ) = @_;    # Plugin parameters
+    my ( $lang, $savetitle, $usethumbs, $search_gid, $enablepanda, $jpntitle, $additionaltags, $expunged ) = @_; # Plugin parameters
 
     # Use the logger to output status - they'll be passed to a specialized logfile and written to STDOUT.
     my $logger = get_plugin_logger();
@@ -97,7 +97,7 @@ sub get_tags {
             return ( error => $gToken );
         }
 
-        $logger->info("找不到匹配的eh画廊!");
+        $logger->info("No matching EH Gallery Found!");
         return ( error => "No matching EH Gallery Found!" );
     } else {
         $logger->debug("EH API Tokens are $gID / $gToken");
@@ -133,11 +133,7 @@ sub lookup_gallery {
         $logger->info("Reverse Image Search Enabled, trying now.");
 
         #search with image SHA hash
-        $URL =
-            $domain
-          . "?f_shash="
-          . $thumbhash
-          . "&fs_similar=on&fs_covers=on";
+        $URL = $domain . "?f_shash=" . $thumbhash . "&fs_similar=on&fs_covers=on";
 
         $logger->debug("Using URL $URL (archive thumbnail hash)");
 
@@ -149,12 +145,9 @@ sub lookup_gallery {
     }
 
     # Search using gID if present in title name
-    my ( $title_gid ) = $title =~ /\[([0-9]+)\]/g;
+    my ($title_gid) = $title =~ /\[([0-9]+)\]/g;
     if ( $search_gid && $title_gid ) {
-        $URL =
-        $domain
-        . "?f_search="
-        . uri_escape_utf8("gid:$title_gid");
+        $URL = $domain . "?f_search=" . uri_escape_utf8("gid:$title_gid");
 
         $logger->debug("Found gID: $title_gid, Using URL $URL (gID from archive title)");
 
@@ -166,18 +159,17 @@ sub lookup_gallery {
     }
 
     # Regular text search (advanced options: Disable default filters for: Language, Uploader, Tags)
-    $URL =
-        $domain
-      . "?advsearch=1&f_sfu=on&f_sft=on&f_sfl=on"
-      . "&f_search="
-      . uri_escape_utf8( qw(") . $title . qw(") );
+    $URL = $domain . "?advsearch=1&f_sfu=on&f_sft=on&f_sfl=on" . "&f_search=" . uri_escape_utf8( qw(") . $title . qw(") );
 
     my $has_artist = 0;
 
-    # Add artist tag from the OG tags if it exists
+    # Add artist tag from the OG tags if it exists (and only contains ASCII characters)
     if ( $tags =~ /.*artist:\s?([^,]*),*.*/gi ) {
-        $URL        = $URL . "+" . uri_escape_utf8("artist:$1");
-        $has_artist = 1;
+        my $artist = $1;
+        if ( $artist =~ /^[\x00-\x7F]*$/ ) {
+            $URL        = $URL . "+" . uri_escape_utf8("artist:$artist");
+            $has_artist = 1;
+        }
     }
 
     # Add the language override, if it's defined.
@@ -186,7 +178,7 @@ sub lookup_gallery {
     }
 
     # Search expunged galleries if the option is enabled.
-    if ( $expunged ) {
+    if ($expunged) {
         $URL = $URL . "&f_sh=on";
     }
 

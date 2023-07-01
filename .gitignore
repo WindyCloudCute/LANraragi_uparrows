@@ -11,4 +11,3 @@ Dockerfile.*
 .DS_Store
 config.log
 autobackup.json
-.vscode/perl-lang

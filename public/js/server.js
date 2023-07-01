@@ -22,9 +22,13 @@ Server.callAPI = function (endpoint, method, successMessage, errorMessage, succe
             if (Object.prototype.hasOwnProperty.call(data, "success") && !data.success) {
                 throw new Error(data.error);
             } else {
-                if (successMessage !== null) {
+                let message = successMessage;
+                if ("successMessage" in data && data.successMessage !== null) {
+                    message = data.successMessage;
+                }
+                if (message !== null) {
                     LRR.toast({
-                        heading: successMessage,
+                        heading: message,
                         icon: "success",
                         hideAfter: 7000,
                     });
@@ -163,7 +167,6 @@ Server.dropDatabase = function () {
         showCancelButton: true,
         focusConfirm: false,
         confirmButtonText: "是的，这样做!",
-        cancelButtonText: "取消",
         reverseButtons: true,
         confirmButtonColor: "#d33",
     }).then((result) => {

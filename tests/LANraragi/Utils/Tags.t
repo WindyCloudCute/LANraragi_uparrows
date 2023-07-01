@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use utf8;
+
 use Data::Dumper;
 
 use LANraragi::Utils::Generic qw(flat);
@@ -231,7 +231,7 @@ note('testing rules unflattening...');
     my @empty_rules;
     my @rules = LANraragi::Utils::Tags::unflat_tagrules( \@empty_rules );
     cmp_deeply( \@rules, [], 'unflattened empty rules' );
-    @rules = LANraragi::Utils::Tags::unflat_tagrules(undef);
+    my @rules = LANraragi::Utils::Tags::unflat_tagrules(undef);
     cmp_deeply( \@rules, [], 'unflattened undef array' );
 }
 

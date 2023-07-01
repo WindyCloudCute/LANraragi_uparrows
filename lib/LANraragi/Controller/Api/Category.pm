@@ -22,7 +22,7 @@ sub get_category {
     my %category = LANraragi::Model::Category::get_category($catid);
 
     unless (%category) {
-        render_api_response( $self, "get_category", "给定的分类不存在。" );
+        render_api_response( $self, "get_category", "The given category does not exist." );
         return;
     }
 
@@ -37,7 +37,7 @@ sub create_category {
     my $pinned = ( $self->req->param('pinned') && $self->req->param('pinned') ne "false" ) ? 1 : 0;
 
     if ( $name eq "" ) {
-        render_api_response( $self, "create_category", "未指定分类名称。" );
+        render_api_response( $self, "create_category", "Category name not specified." );
         return;
     }
 
@@ -101,7 +101,15 @@ sub add_to_category {
     my ( $result, $err ) = LANraragi::Model::Category::add_to_category( $catid, $arcid );
 
     if ($result) {
-        render_api_response( $self, "add_to_category" );
+        my $successMessage = "Added $arcid to Category $catid!";
+        my %category       = LANraragi::Model::Category::get_category($catid);
+        my $title          = LANraragi::Model::Archive::get_title($arcid);
+
+        if ( %category && defined($title) ) {
+            $successMessage = "Added \"$title\" to category \"$category{name}\"!";
+        }
+
+        render_api_response( $self, "add_to_category", undef, $successMessage );
     } else {
         render_api_response( $self, "add_to_category", $err );
     }
@@ -116,7 +124,15 @@ sub remove_from_category {
     my ( $result, $err ) = LANraragi::Model::Category::remove_from_category( $catid, $arcid );
 
     if ($result) {
-        render_api_response( $self, "remove_from_category" );
+        my $successMessage = "Removed $arcid from Category $catid!";
+        my %category       = LANraragi::Model::Category::get_category($catid);
+        my $title          = LANraragi::Model::Archive::get_title($arcid);
+
+        if ( %category && defined($title) ) {
+            $successMessage = "Removed \"$title\" from category \"$category{name}\"!";
+        }
+
+        render_api_response( $self, "remove_from_category", undef, $successMessage );
     } else {
         render_api_response( $self, "remove_from_category", $err );
     }

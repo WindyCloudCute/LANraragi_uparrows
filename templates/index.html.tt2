@@ -116,7 +116,8 @@
 							<div id="carousel-empty"
 								style="height: 344px; display: flex; justify-content: center; align-items: center; flex-direction: column;">
 								<i class="fa fa-4x fa-sad-cry"></i>
-								<span style="margin-top: 12px;">这里什么都没有 (╯‵□′)╯︵┻━┻ </span>
+								<span style="margin-top: 12px;">No
+									results here.</span>
 							</div>
 						</div>
 					</div>
@@ -130,10 +131,10 @@
 						<option selected value="date_added">日期</option>
 					</select>
 					<a class="fa fa-sort-alpha-down fa-2x table-option" id="order-sortby" href="#"
-						title="递减"></a>
+						title="排列顺序"></a>
 
 					<input id="thumbnail-crop" class="fa table-option" type="checkbox"
-						title="如果启用本选项，不符合常规A4页面的缩略图将被裁剪为仅显示左边部分.">
+						title="如果启用，不适合常规A4页面的缩略图将被裁剪为仅显示左边部分.">
 					<label for="thumbnail-crop" style="vertical-align: middle; padding-top:6px">缩略图裁切</label>
 				</div>
 				<div style="margin-left:auto">跳转到:
@@ -193,8 +194,8 @@
 			[% IF usingdefpass %]
 			//If the json has the "default password" flag, flash a friendly notification inviting the user to change his password
 			LRR.toast({
-				heading: '(⊙o⊙)你现在\'正在使用默认密码\'，\n这会造成非常严重的后果!',
-				text: '<a href="login">\'点此登录\'</a></br>使用默认密码 "kamimamita"\n进行登录并且马上修改它<a href="config">修改它</a>\n<b>赶紧的!</b>',
+				heading: '你\'正在使用默认密码\'，这样真的非常危险!!!!',
+				text: ' 使用默认密码 "kamimamita" <a href="login">点此登录</a><br>马上去 <a href="config">修改它</a>!<br/>当然你也可以把密码禁用掉! <br/>但是所有人都可以修改服务器的设置项?',
 				icon: 'warning',
                 hideAfter: 25000,
 				closeOnClick: false,

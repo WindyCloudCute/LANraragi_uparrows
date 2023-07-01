@@ -1,30 +1,31 @@
 {
     "name": "lanraragi",
-    "version": "0.8.81",
-    "version_name": "外边",
+    "version": "0.9.0",
+    "version_name": "哈罗太空男孩",
     "description": "我一世英名恐怕要毁在日本文化的影响下了！",
     "scripts": {
         "test": "prove -r -l -v tests/",
         "lanraragi-installer": "perl ./tools/install.pl",
         "lint": "eslint --ext .js public/",
         "start": "perl ./script/launcher.pl -f ./script/lanraragi",
-        "dev-server": "export LRR_DEVSERVER=1 && perl ./script/launcher.pl -m -v ./script/lanraragi",
+        "dev-server": "perl ./script/launcher.pl -m -v ./script/lanraragi",
+        "dev-server-verbose": "export LRR_DEVSERVER=1 && perl ./script/launcher.pl -m -v ./script/lanraragi",
         "kill-workers": "(kill -15 `cat ./public/temp/shinobu.pid-s6` || true) && (kill -15 `cat ./public/temp/minion.pid-s6` || true) && (pkill -9 -f ./script/lanraragi || true)",
-        "docker-build": "docker build -t windymadman/lanraragi_cn -f ./tools/build/docker/Dockerfile .",
+        "docker-build": "docker build -t windycloud/lanraragi_cn -f ./tools/build/docker/Dockerfile .",
         "critic": "perlcritic ./lib/* ./script/* ./tools/install.pl",
         "backup-db": "perl ./script/backup",
-        "get-version": "perl -Mojo -E \"my \\$conf = j(f(qw(package.json))->slurp); say %\\$conf{version} .q/ - '/. %\\$conf{version_name} .q/'/ \""
+        "get-version": "perl ./script/get_version"
     },
     "repository": {
         "type": "git",
-        "url": "git+http://ct.windycloud.cn:3000/Windy/LANraragi"
+        "url": "git+https://github.com/Difegue/LANraragi.git"
     },
-    "author": "dfug,(Chinese Culture)dezhao & WindyMadman",
+    "author": "dfug",
     "license": "MIT",
     "bugs": {
-        "url": "http://ct.windycloud.cn:3000/Windy/LANraragi/issues"
+        "url": "https://github.com/Difegue/LANraragi/issues"
     },
-    "homepage": "http://ct.windycloud.cn:3000/Windy/LANraragi#readme",
+    "homepage": "https://github.com/Difegue/LANraragi#readme",
     "dependencies": {
         "@fortawesome/fontawesome-free": "^6.2.1",
         "@jcubic/tagger": "^0.4.2",

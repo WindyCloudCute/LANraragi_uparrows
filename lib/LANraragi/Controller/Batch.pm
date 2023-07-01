@@ -39,7 +39,7 @@ sub socket {
     my $self      = shift;
     my $cancelled = 0;
     my $client    = $self->tx;
-    my $redis     = $self->LRR_CONF->get_redis();
+    my $redis     = $self->LRR_CONF->get_redis;
 
     my $logger = get_logger( "Batch Tagging", "lanraragi" );
 
@@ -59,7 +59,7 @@ sub socket {
             my $id         = $command->{"archive"};
 
             unless ($id) {
-                $client->finish( 1001 => '没有选择档案.' );
+                $client->finish( 1001 => 'No archives provided.' );
                 return;
             }
             $logger->debug("Processing $id");
@@ -68,7 +68,7 @@ sub socket {
 
                 my $plugin = get_plugin($pluginname);
                 unless ($plugin) {
-                    $client->finish( 1001 => '找不到插件.' );
+                    $client->finish( 1001 => 'Plugin not found.' );
                     return;
                 }
 

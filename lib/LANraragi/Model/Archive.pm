@@ -2,7 +2,10 @@ package LANraragi::Model::Archive;
 
 use strict;
 use warnings;
-use utf8;
+
+
+use feature qw(signatures);
+no warnings 'experimental::signatures';
 
 use Cwd 'abs_path';
 use Redis;
@@ -17,6 +20,22 @@ use LANraragi::Utils::Logging qw(get_logger);
 use LANraragi::Utils::Archive qw(extract_single_file extract_thumbnail);
 use LANraragi::Utils::Database
   qw(redis_encode redis_decode invalidate_cache set_title set_tags get_archive_json get_archive_json_multi);
+
+# get_archive(id)
+#   Returns the title for the archive matching the given id.
+#   Returns undef if the id doesn't exist.
+sub get_title($id) {
+
+    my $logger = get_logger( "Archives", "lanraragi" );
+    my $redis = LANraragi::Model::Config->get_redis;
+
+    if ( $id eq "" ) {
+        $logger->debug("No archive ID provided.");
+        return ();
+    }
+
+    return redis_decode($redis->hget( $id, "title" ));
+}
 
 # Functions used when dealing with archives.
 
@@ -86,7 +105,7 @@ sub serve_thumbnail {
     my $subfolder = substr( $id, 0, 2 );
     my $thumbname = "$thumbdir/$subfolder/$id.jpg";
 
-    if ( $page > 0 ) {
+    if ( $page - 1 > 0 ) {
         $thumbname = "$thumbdir/$subfolder/$id/$page.jpg";
     }
 
@@ -184,7 +203,7 @@ sub serve_page {
             my ( $n, $resized_folder, $e ) = fileparse( $resized_file, qr/\.[^.]*/ );
             make_path($resized_folder);
 
-            $logger->debug("将文件复制到 $resized_folder 转换以进行大小调整");
+            $logger->debug("Copying file to $resized_folder for resize transformation");
             cp( $file, $resized_file );
 
             my $threshold = LANraragi::Model::Config->get_threshold;

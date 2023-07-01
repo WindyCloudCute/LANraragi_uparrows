@@ -59,10 +59,6 @@ my $expected_opds = ( Mojo::File->new("$SAMPLES/opds/opds_sample.xml")->slurp );
 # Generate a new OPDS Catalog and compare it against our sample
 my $opds_result = LANraragi::Model::Opds::generate_opds_catalog($mojo);
 
-print("\n\n\n");
-print($opds_result);
-print("\n\n\n");
-
 # Compare without whitespace
 $opds_result =~ s/\s//g;
 $expected_opds =~ s/\s//g;

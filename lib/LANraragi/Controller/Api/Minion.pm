@@ -29,7 +29,7 @@ sub minion_job_status {
         );
 
     } else {
-        render_api_response( $self, "minion_job_status", "没有使用此 ID 的工作." );
+        render_api_response( $self, "minion_job_status", "No job with this ID." );
     }
 }
 
@@ -42,7 +42,7 @@ sub minion_job_detail {
     if ($job) {
         $self->render( json => $job->info );
     } else {
-        render_api_response( $self, "minion_job_detail", "没有使用此 ID 的工作." );
+        render_api_response( $self, "minion_job_detail", "No job with this ID." );
     }
 }
 

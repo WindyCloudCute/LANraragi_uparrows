@@ -1,7 +1,7 @@
 package LANraragi::Controller::Category;
 use Mojo::Base 'Mojolicious::Controller';
 
-use utf8;
+
 use URI::Escape;
 use Redis;
 use Encode;
@@ -14,7 +14,7 @@ use LANraragi::Utils::Database qw(redis_decode);
 sub index {
 
     my $self  = shift;
-    my $redis = $self->LRR_CONF->get_redis();
+    my $redis = $self->LRR_CONF->get_redis;
     my $force = 0;
 
     my $userlogged = $self->LRR_CONF->enable_pass == 0 || $self->session('is_logged');
@@ -27,18 +27,18 @@ sub index {
 
     #Parse the archive list and build <li> elements accordingly.
     my $arclist = "";
+
     #Only show IDs that still have their files present.
     foreach my $id (@keys) {
         my $zipfile = $redis->hget( $id, "file" );
         my $title   = $redis->hget( $id, "title" );
         $title = redis_decode($title);
         $title = xml_escape($title);
-        if (defined $zipfile) {
-            if ( -e $zipfile ) {
-                $arclist .=
-                  "<li><input type='checkbox' name='archive' id='$id' class='archive' onchange='Category.updateArchiveInCategory(this.id, this.checked)'>";
-                $arclist .= "<label for='$id'> $title</label></li>";
-            }
+
+        if ( -e $zipfile ) {
+            $arclist .=
+              "<li><input type='checkbox' name='archive' id='$id' class='archive' onchange='Category.updateArchiveInCategory(this.id, this.checked)'>";
+            $arclist .= "<label for='$id'> $title</label></li>";
         }
     }
 

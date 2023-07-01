@@ -17,7 +17,6 @@ use LANraragi::Utils::TempFolder qw(get_temp);
 use LANraragi::Model::Upload;
 use LANraragi::Model::Config;
 use LANraragi::Model::Stats;
-use utf8;
 
 # Add Tasks to the Minion instance.
 sub add_tasks {
@@ -28,10 +27,21 @@ sub add_tasks {
             my ( $job, @args ) = @_;
             my ( $thumbdir, $id, $page ) = @args;
 
+            my $logger = get_logger( "Minion", "minion" );
+
             # Non-cover thumbnails are rendered in low quality by default.
             my $use_hq = $page eq 0 || LANraragi::Model::Config->get_hqthumbpages;
-            my $thumbname = extract_thumbnail( $thumbdir, $id, $page, $use_hq );
-            $job->finish($thumbname);
+            my $thumbname = "";
+
+            eval { $thumbname = extract_thumbnail( $thumbdir, $id, $page, $use_hq ); };
+            if ($@) {
+                my $msg = "Error building thumbnail: $@";
+                $logger->error($msg);
+                $job->fail( { errors => [$msg] } );
+            } else {
+                $job->finish($thumbname);
+            }
+
         }
     );
 
@@ -45,14 +55,14 @@ sub add_tasks {
             my @keys   = $redis->keys('????????????????????????????????????????');
             $redis->quit();
 
-            $logger->info("Starting thumbnail regen job (force = $force)");
+            $logger->info("开始缩略图重新生成作业 (强制模式 = $force)");
             my @errors = ();
 
             my $numCpus = Sys::CpuAffinity::getNumCpus();
             my $pl      = Parallel::Loops->new($numCpus);
             $pl->share( \@errors );
 
-            $logger->debug("Number of available cores for processing: $numCpus");
+            $logger->debug("可用于处理的核心数量: $numCpus");
             my @sections = split_workload_by_cpu( $numCpus, @keys );
 
             # Regen thumbnails for errythang if $force = 1, only missing thumbs otherwise
@@ -67,12 +77,12 @@ sub add_tasks {
 
                             unless ( $force == 0 && -e $thumbname ) {
                                 eval {
-                                    $logger->debug("Regenerating for $id...");
+                                    $logger->debug("正在重新生成:$id...");
                                     extract_thumbnail( $thumbdir, $id, 0, 1 );
                                 };
 
                                 if ($@) {
-                                    $logger->warn("Error while generating thumbnail: $@");
+                                    $logger->warn("生成缩略图时出错: $@");
                                     push @errors, $@;
                                 }
                             }
@@ -117,7 +127,7 @@ sub add_tasks {
               or die "Bullshit! File path could not be converted back to a byte sequence!"
               ;    # This error happening would not make any sense at all so it deserves the EYE reference
 
-            $logger->info("处理上传文件 $file...");
+            $logger->info("正在处理上传的文件 $file...");
 
             # Since we already have a file, this goes straight to handle_incoming_file.
             my ( $status, $id, $title, $message ) = LANraragi::Model::Upload::handle_incoming_file( $file, $catid, "" );
@@ -140,20 +150,20 @@ sub add_tasks {
 
             my $ua = Mojo::UserAgent->new;
             my $logger = get_logger( "Minion", "minion" );
-            $logger->info("下载 url $url...");
+            $logger->info("正在下载 $url...");
 
             # Keep a clean copy of the url for display and tagging
             my $og_url = $url;
             trim_url($og_url);
 
-            # If the URL is already recorded, abort the download
+            # 如果已记录URL，请流产下载
             my $recorded_id = LANraragi::Model::Stats::is_url_recorded($og_url);
             if ($recorded_id) {
                 $job->finish(
                     {   success => 0,
                         url     => $og_url,
                         id      => $recorded_id,
-                        message => "链接已经被下载!"
+                        message => "链接已被下载!"
                     }
                 );
                 return;
@@ -164,7 +174,7 @@ sub add_tasks {
 
             if ($downloader) {
 
-                $logger->info( "发现下载器" . $downloader->{namespace} );
+                $logger->info( "发现下载器 " . $downloader->{namespace} );
 
                 # Use the downloader to transform the URL
                 my $plugname = $downloader->{namespace};
@@ -184,15 +194,15 @@ sub add_tasks {
 
                 $ua  = $plugin_result->{user_agent};
                 $url = $plugin_result->{download_url};
-                $logger->info("URL transformed by plugin to $url");
+                $logger->info("插件将 URL 转换为 $url");
             } else {
-                $logger->debug("找不到下载程序，尝试直接下载 URL.");
+                $logger->debug("找不到下载器，尝试直接下载 URL.");
             }
 
             # Download the URL
             eval {
                 my $tempfile = LANraragi::Model::Upload::download_url( $url, $ua );
-                $logger->info("链接已下载到 $tempfile");
+                $logger->info("URL将会被保存为 $tempfile ");
 
                 # Add the url as a source: tag
                 my $tag = "source:$og_url";

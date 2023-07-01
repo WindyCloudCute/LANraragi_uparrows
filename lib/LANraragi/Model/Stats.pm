@@ -2,8 +2,8 @@ package LANraragi::Model::Stats;
 
 use strict;
 use warnings;
-use utf8;
 
+use utf8::all;
 use Redis;
 use File::Find;
 use Mojo::JSON qw(encode_json);
@@ -37,7 +37,7 @@ sub get_archive_count {
 
 sub get_page_stat {
 
-    my $redis = LANraragi::Model::Config->get_redis;
+    my $redis = LANraragi::Model::Config->get_redis_config;
     my $stat = $redis->get("LRR_TOTALPAGESTAT") || 0;
     $redis->quit();
 
@@ -136,7 +136,7 @@ sub build_stat_hashes {
     }
 
     # Add a stamp to the stats hash to indicate when it was last updated
-    $redistx->hset( "LAST_JOB_TIME", "time",time() );
+    $redistx->set( "LAST_JOB_TIME", time() );
 
     $redistx->exec;
     $logger->info("Stat indexes built! ($archive_count archives)");

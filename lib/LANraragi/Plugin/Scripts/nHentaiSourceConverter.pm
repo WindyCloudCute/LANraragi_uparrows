@@ -3,11 +3,11 @@ package LANraragi::Plugin::Scripts::nHentaiSourceConverter;
 use strict;
 use warnings;
 no warnings 'uninitialized';
-
+use utf8;
 use LANraragi::Utils::Logging qw(get_plugin_logger);
 use LANraragi::Utils::Database qw(invalidate_cache set_tags);
 use LANraragi::Model::Config;
-use utf8;
+
 #Meta-information about your plugin.
 sub plugin_info {
 

@@ -2,8 +2,8 @@ package LANraragi::Model::Search;
 
 use strict;
 use warnings;
-use utf8;
 
+use utf8::all;
 use List::Util qw(min);
 use Redis;
 use Storable qw/ nfreeze thaw /;
@@ -19,14 +19,14 @@ use LANraragi::Model::Category;
 # do_search (filter, category_id, page, key, order, newonly, untaggedonly)
 # Performs a search on the database.
 sub do_search {
-
+    
     my ( $filter, $category_id, $start, $sortkey, $sortorder, $newonly, $untaggedonly ) = @_;
 
     my $redis = LANraragi::Model::Config->get_redis_search;
     my $logger = get_logger( "Search Engine", "lanraragi" );
 
     unless ( $redis->exists("LAST_JOB_TIME") ) {
-        $logger->error("搜索引擎尚未初始化。请等待几秒钟.");
+        $logger->error("搜索引擎尚未初始化。 请稍等几秒钟。");
         return ( -1, -1, () );
     }
 
@@ -36,11 +36,12 @@ sub do_search {
     # Look in searchcache first
     my $sortorder_inv = $sortorder ? 0 : 1;
     my $cachekey      = redis_encode("$category_id-$filter-$sortkey-$sortorder-$newonly-$untaggedonly");
+    #print $cachekey . "\n";
     my $cachekey_inv  = redis_encode("$category_id-$filter-$sortkey-$sortorder_inv-$newonly-$untaggedonly");
     my ( $cachehit, @filtered ) = check_cache( $cachekey, $cachekey_inv );
 
     unless ($cachehit) {
-        $logger->debug("No cache available, doing a full DB parse.");
+        $logger->debug("没有可用的缓存，进行完整的DB解析。");
         @filtered = search_uncached( $category_id, $filter, $sortkey, $sortorder, $newonly, $untaggedonly );
 
         # Cache this query in the search database
@@ -69,10 +70,10 @@ sub check_cache {
 
     my @filtered = ();
     my $cachehit = 0;
-    $logger->debug("Search request: $cachekey");
+    $logger->debug("搜索请求： $cachekey");
 
     if ( $redis->exists("LRR_SEARCHCACHE") && $redis->hexists( "LRR_SEARCHCACHE", $cachekey ) ) {
-        $logger->debug("Using cache for this query.");
+        $logger->debug("将缓存用于此查询。");
         $cachehit = 1;
 
         # Thaw cache and use that as the filtered list
@@ -80,7 +81,7 @@ sub check_cache {
         @filtered = @{ thaw $frozendata };
 
     } elsif ( $redis->exists("LRR_SEARCHCACHE") && $redis->hexists( "LRR_SEARCHCACHE", $cachekey_inv ) ) {
-        $logger->debug("A cache key exists with the opposite sortorder.");
+        $logger->debug("与对面的排序订单存在缓存密钥.");
         $cachehit = 1;
 
         # Thaw cache, invert the list to match the sortorder and use that as the filtered list
@@ -96,8 +97,9 @@ sub check_cache {
 sub search_uncached {
 
     my ( $category_id, $filter, $sortkey, $sortorder, $newonly, $untaggedonly ) = @_;
-    my $redis = LANraragi::Model::Config->get_redis_search;
-    my $logger = get_logger( "Search Core", "lanraragi" );
+    my $redis    = LANraragi::Model::Config->get_redis_search;
+    my $redis_db = LANraragi::Model::Config->get_redis;
+    my $logger   = get_logger( "Search Core", "lanraragi" );
 
     # Compute search filters
     my @tokens = compute_search_filter($filter);
@@ -105,7 +107,7 @@ sub search_uncached {
     # Prepare array: For each token, we'll have a list of matching archive IDs.
     # We intersect those lists as we proceed to get the final result.
     # Start with all our IDs.
-    my @filtered = LANraragi::Model::Config->get_redis->keys('????????????????????????????????????????');
+    my @filtered = $redis_db->keys('????????????????????????????????????????');
 
     # If we're using a category, we'll need to get its source data first.
     my %category = LANraragi::Model::Category::get_category($category_id);
@@ -145,19 +147,44 @@ sub search_uncached {
             my $isneg   = $token->{isneg};
             my $isexact = $token->{isexact};
 
-            $logger->debug("Searching for $tag, isneg=$isneg, isexact=$isexact");
+            $logger->debug("正在搜索 $tag, isneg=$isneg, isexact=$isexact");
 
             # Encode tag as we'll use it in redis operations
             $tag = redis_encode($tag);
 
             my @ids = ();
 
+           # Specific case for pagecount searches
+           # You can search for galleries with a specific number of pages with pages:20, or with a page range: pages:>20 pages:<=30.
+            if ( $tag =~ /^pages:(>|<|>=|<=)?(\d+)$/ ) {
+                my $operator  = $1;
+                my $pagecount = $2;
+
+                $logger->debug("搜索具有页面的ID $operator $pagecount");
+
+                # If no operator is specified, we assume it's an exact match
+                $operator = "=" if !$operator;
+
+                # Go through all IDs in @filtered and check if they have the right pagecount
+                # This could be sped up with an index, but it's probably not worth it.
+                foreach my $id (@filtered) {
+                    my $count = $redis_db->hget( $id, "pagecount" );
+                    if (   ( $operator eq "=" && $count == $pagecount )
+                        || ( $operator eq ">"  && $count > $pagecount )
+                        || ( $operator eq ">=" && $count >= $pagecount )
+                        || ( $operator eq "<"  && $count < $pagecount )
+                        || ( $operator eq "<=" && $count <= $pagecount ) ) {
+                        push @ids, $id;
+                    }
+                }
+            }
+
             # For exact tag searches, just check if an index for it exists
             if ( $isexact && $redis->exists("INDEX_$tag") ) {
 
                 # Get the list of IDs for this tag
                 @ids = $redis->smembers("INDEX_$tag");
-                $logger->debug( "Found tag index for $tag, containing " . scalar @ids . " IDs" );
+                $logger->debug( "找到了 $tag 的索引，包含 " . scalar @ids . "个 ID" );
             } else {
 
                 # Get index keys that match this tag.
@@ -169,7 +196,7 @@ sub search_uncached {
                 # Get the list of IDs for each key
                 foreach my $key (@keys) {
                     my @keyids = $redis->smembers($key);
-                    $logger->trace( "Found index $key for $tag, containing " . scalar @ids . " IDs" );
+                    $logger->trace( "找到了 $tag 的索引 $key，包含了 " . scalar @ids . " 个 ID" );
                     push @ids, @keyids;
                 }
             }
@@ -181,7 +208,7 @@ sub search_uncached {
 
                 # First iteration
                 if ( $scan == -1 ) { $scan = 0; }
-                $logger->trace("Scanning for $namesearch, cursor=$scan");
+                $logger->trace("正在扫描 $namesearch, cursor=$scan");
 
                 my @result = $redis->zscan( "LRR_TITLES", $scan, "MATCH", $namesearch, "COUNT", 100 );
                 $scan = $result[0];
@@ -189,7 +216,7 @@ sub search_uncached {
                 foreach my $title ( @{ $result[1] } ) {
 
                     if ( $title eq "0" ) { next; }    # Skip scores
-                    $logger->trace("Found title match: $title");
+                    $logger->trace("找到标题匹配项: $title");
 
                     # Strip everything before \x00 to get the ID out of the key
                     my $id = substr( $title, index( $title, "\x00" ) + 1 );
@@ -199,21 +226,21 @@ sub search_uncached {
 
             if ( scalar @ids == 0 && !$isneg ) {
 
-                # No more results, we can end search here
-                $logger->trace("No results for this token, halting search.");
+                # 没有更多的结果，我们可以在这里结束搜索
+                $logger->trace("该标记没有结果，正在停止搜索。");
                 @filtered = ();
                 last;
             } else {
-                $logger->trace( "Found " . scalar @ids . " results for this token." );
+                $logger->trace( "找到此标记的 " . scalar @ids . " 个结果." );
 
-                # Intersect the new list with the previous ones
+                # 将新列表与以前的列表相交
                 @filtered = intersect_arrays( \@ids, \@filtered, $isneg );
             }
         }
     }
 
     if ( $#filtered > 0 ) {
-        $logger->debug( "Found " . $#filtered . " results after filtering." );
+        $logger->debug( "筛选后找到了 " . $#filtered . " 个结果" );
 
         if ( !$sortkey ) {
             $sortkey = "title";
@@ -222,17 +249,16 @@ sub search_uncached {
         if ( $sortkey eq "title" ) {
             my @ordered = ();
 
-            # For title sorting, we can just use the LRR_TITLES set, which is sorted lexicographically.
+            # For title sorting, we can just use the LRR_TITLES set, which is sorted lexicographically (but not naturally).
+            @ordered = nsort( $redis->zrangebylex( "LRR_TITLES", "-", "+" ) );
             if ($sortorder) {
-                @ordered = $redis->zrevrangebylex( "LRR_TITLES", "+", "-" );
-            } else {
-                @ordered = $redis->zrangebylex( "LRR_TITLES", "-", "+" );
+                @ordered = reverse(@ordered);
             }
 
             # Remove the titles from the keys, which are stored as "title\x00id"
             @ordered = map { substr( $_, index( $_, "\x00" ) + 1 ) } @ordered;
 
-            $logger->trace( "Example element from ordered list: " . $ordered[0] );
+            $logger->trace( "有序列表中的示例元素: " . $ordered[0] );
 
             # Just intersect the ordered list with the filtered one to get the final result
             @filtered = intersect_arrays( \@filtered, \@ordered, 0 );
@@ -247,6 +273,8 @@ sub search_uncached {
         }
     }
 
+    $redis->quit();
+    $redis_db->quit();
     return @filtered;
 }
 
@@ -344,7 +372,7 @@ sub compute_search_filter {
         }
 
         # Escape already present regex characters
-        $logger->debug("Pre-escaped tag: $tag");
+        $logger->debug("预转义标签: $tag");
 
         remove_spaces($tag);
 
@@ -370,38 +398,24 @@ sub compute_search_filter {
 sub sort_results {
 
     my ( $sortkey, $sortorder, @filtered ) = @_;
-
     my $redis = LANraragi::Model::Config->get_redis;
 
-    @filtered = sort {
+    my $re = qr/$sortkey/;
 
-        my $tags_a = $redis->hget( $a, "tags" );
-        my $tags_b = $redis->hget( $b, "tags" );
+   # Map our archives to a hash, where the key is the ID and the value is the first tag we found that matches the sortkey/namespace.
+   # (If no tag, defaults to "zzzz")
+    my %tmpfilter = map { $_ => ( $redis->hget( $_, "tags" ) =~ m/.*${re}:(.*)(\,.*|$)/ ) ? $1 : "zzzz" } @filtered;
 
-        # Not a very good way to make items end at the bottom...
-        my $meta1 = "zzzz";
-        my $meta2 = "zzzz";
+    my @sorted = map { $_->[0] }    # Map back to only having the ID
+      sort { ncmp( $a->[1], $b->[1] ) }    # Sort by the tag
+      map { [ $_, lc( $tmpfilter{$_} ) ] } # Map to an array containing the ID and the lowercased tag
+      keys %tmpfilter;                     # List of IDs
 
-        if ( $sortkey ne "title" ) {
-            my $re = qr/$sortkey/;
-            if ( $tags_a =~ m/.*${re}:(.*)(\,.*|$)/ ) {
-                $meta1 = $1;
-            }
+    if ($sortorder) {
+        @sorted = reverse @sorted;
+    }
 
-            if ( $tags_b =~ m/.*${re}:(.*)(\,.*|$)/ ) {
-                $meta2 = $1;
-            }
-        }
-
-        if ($sortorder) {
-            ncmp( lc($meta2), lc($meta1) );
-        } else {
-            ncmp( lc($meta1), lc($meta2) );
-        }
-
-    } @filtered;
-
-    return @filtered;
+    return @sorted;
 }
 
 1;

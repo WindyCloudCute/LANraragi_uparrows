@@ -25,8 +25,6 @@ Category.addNewCategory = function (isDynamic) {
         title: "输入一个分类的名称",
         input: "text",
         inputPlaceholder: "我的分类",
-        confirmButtonText: "保存",
-        cancelButtonText: "取消",
         inputAttributes: {
             autocapitalize: "off",
         },
@@ -171,7 +169,6 @@ Category.deleteSelectedCategory = function () {
         showCancelButton: true,
         focusConfirm: false,
         confirmButtonText: "是的，删除!",
-        cancelButtonText: "取消",
         reverseButtons: true,
         confirmButtonColor: "#d33",
     }).then((result) => {

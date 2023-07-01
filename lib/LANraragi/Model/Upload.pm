@@ -2,7 +2,7 @@ package LANraragi::Model::Upload;
 
 use strict;
 use warnings;
-
+use utf8::all;
 use Redis;
 use URI::Escape;
 use File::Basename;
@@ -18,7 +18,6 @@ use LANraragi::Utils::Generic qw(is_archive remove_spaces remove_newlines trim_u
 use LANraragi::Model::Config;
 use LANraragi::Model::Plugins;
 use LANraragi::Model::Category;
-use utf8;
 
 # Handle files uploaded by the user, or downloaded from remote endpoints.
 
@@ -54,21 +53,29 @@ sub handle_incoming_file {
     #that the file it references still exists on the filesystem
     my $redis        = LANraragi::Model::Config->get_redis;
     my $redis_search = LANraragi::Model::Config->get_redis_search;
+    my $replace_dupe = LANraragi::Model::Config->get_replacedupe;
     my $isdupe       = $redis->exists($id) && -e $redis->hget( $id, "file" );
 
-    # Stop here if file is a dupe.
-    if ( -e $output_file || $isdupe ) {
+    # Stop here if file is a dupe and replacement is turned off.
+    if ((-e $output_file || $isdupe) && !$replace_dupe) {
 
         # Trash temporary file
         unlink $tempfile;
 
         # The file already exists
+        my $suffix = " 启用在配置中替换重复的存档以替换旧的档案。";
         my $msg =
           $isdupe
-          ? "该文件已存在于库中。"
-          : "库中存在具有相同名称的文件。";
+          ? "该文件已存在于库中。" . $suffix
+          : "库中存在具有相同名称的文件。" . $suffix;
 
         return ( 0, $id, $filename, $msg );
+    }
+
+    # If we are replacing an existing one, just remove the old one first.
+    if ($replace_dupe) {
+        $logger->debug("更换之前删除存档 $id。");
+        LANraragi::Utils::Database::delete_archive( $id );
     }
 
     # Add the file to the database ourselves so Shinobu doesn't do it
@@ -90,9 +97,9 @@ sub handle_incoming_file {
             # If the tag is a source: tag, add it to the URL index
             if ( $t =~ /source:(.*)/i ) {
                 my $url = $1;
-                $logger->debug("添加 $url 作为 $id 的链接");
+                $logger->debug("添加 $url 作为 $id 的 URL");
                 trim_url($url);
-                $logger->debug("处理: $url");
+                $logger->debug("已修剪：$url");
 
                 # No need to encode the value, as URLs are already encoded by design
                 $redis_search->hset( "LRR_URLMAP", $url, $id );
@@ -101,14 +108,14 @@ sub handle_incoming_file {
     }
 
     # Move the file to the content folder.
-    # Move to a .tmp first in case copy to the content folder takes a while...
+    # Move to a .upload first in case copy to the content folder takes a while...
     move( $tempfile, $output_file . ".upload" );
 
     # Then rename inside the content folder itself to proc Shinobu.
     move( $output_file . ".upload", $output_file );
 
     unless ( -e $output_file ) {
-        return ( 0, $id, $name, "该文件无法移动到您的内容文件夹！" );
+        return ( 0, $id, $name, "该文件无法移至您的内容文件夹！" );
     }
 
     # Now that the file has been copied, we can add the timestamp tag and calculate pagecount.
@@ -118,25 +125,25 @@ sub handle_incoming_file {
     $redis->quit();
     $redis_search->quit();
 
-    $logger->debug("在新上传的文件上运行自动插件 $id...");
+    $logger->debug("在新上传的文件 $id 上运行自动插件...");
 
     my ( $succ, $fail, $addedtags, $newtitle ) = LANraragi::Model::Plugins::exec_enabled_plugins_on_file($id);
-    my $successmsg = "$succ 插件已成功使用, $fail 插件运行失败, $addedtags 标签已添加. ";
+    my $successmsg = "$succ 插件使用成功，$fail 插件失败，$addedtags 标签已添加。 ";
 
     if ( $newtitle ne "" ) {
         $name = $newtitle;
     }
 
     if ($catid) {
-        $logger->debug("添加上传文件到分类 $catid");
+        $logger->debug("将上传的文件添加到类别 $catid");
 
         my ( $catsucc, $caterr ) = LANraragi::Model::Category::add_to_category( $catid, $id );
         if ($catsucc) {
             my %category = LANraragi::Model::Category::get_category($catid);
             my $catname  = $category{name};
-            $successmsg .= "添加到分类 '$catname'!";
+            $successmsg .= "添加到类别“$catname”！";
         } else {
-            $successmsg .= "无法添加到分类: $caterr";
+            $successmsg .= "无法添加到类别：$caterr";
         }
     }
 

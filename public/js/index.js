@@ -74,10 +74,10 @@ Index.initializeAll = function () {
                 Index.updateCarousel();
             },
             items: {
-                random: { name: "随机选择", icon: "fas fa-random" },
+                random: { name: "随机", icon: "fas fa-random" },
                 inbox: { name: "新档案", icon: "fas fa-envelope-open-text" },
-                untagged: { name: "未标记的档案", icon: "fas fa-edit" },
-                // ondeck: { name: "在甲板上", icon: "fas fa-book-reader" },
+                untagged: { name: "无标签档案", icon: "fas fa-edit" },
+                // ondeck: { name: "列表", icon: "fas fa-book-reader" },
             },
         }),
     });
@@ -264,11 +264,6 @@ Index.updateTableControls = function (currentSort, currentOrder, totalPages, cur
 
     $("#namespace-sortby").val(currentSort);
     $("#order-sortby")[0].classList.remove("fa-sort-alpha-down", "fa-sort-alpha-up");
-    if(currentOrder === "asc"){
-        $("#order-sortby")[0].title = "递曾";
-    }else{
-        $("#order-sortby")[0].title = "递减";
-    }
     $("#order-sortby")[0].classList.add(currentOrder === "asc" ? "fa-sort-alpha-down" : "fa-sort-alpha-up");
 
     if (localStorage.indexViewMode === "1") {
@@ -352,7 +347,7 @@ Index.updateCarousel = function (e) {
             (results) => {
                 Index.swiper.virtual.removeAllSlides();
                 const slides = results.data
-                .map((archive) => LRR.buildThumbnailDiv(archive));
+                    .map((archive) => LRR.buildThumbnailDiv(archive));
                 Index.swiper.virtual.appendSlide(slides);
                 Index.swiper.virtual.update();
 
@@ -516,7 +511,6 @@ Index.handleContextMenu = function (option, id) {
             showCancelButton: true,
             focusConfirm: false,
             confirmButtonText: "是的，删除!",
-            cancelButtonText: "取消",
             reverseButtons: true,
             confirmButtonColor: "#d33",
         }).then((result) => {
@@ -544,7 +538,6 @@ Index.loadTagSuggestions = function () {
     Server.callAPI("/api/database/stats?minweight=2", "GET", null, "无法加载标签建议",
         (data) => {
             // Get namespaces objects in the data array to fill the namespace-sortby combobox
-            // 这是生成主界面排序列表的一段代码, 没必要进行汉化, 除非要把整个Tag系统全部汉化否则只能进行词替换, 这将造成很大的工作量!
             const namespacesSet = new Set(data.map((element) => (element.namespace === "parody" ? "series" : element.namespace)));
             namespacesSet.forEach((element) => {
                 if (element !== "" && element !== "date_added") {
@@ -574,7 +567,7 @@ Index.loadTagSuggestions = function () {
                 },
                 replace(text) {
                     const before = this.input.value.match(/^.*(,|-)\s*-*|/)[0];
-                    this.input.value = `${before + text}, `;
+                    this.input.value = `${before + text}$, `;
                 },
             });
         },

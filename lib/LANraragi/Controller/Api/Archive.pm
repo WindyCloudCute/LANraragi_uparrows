@@ -56,7 +56,7 @@ sub serve_metadata {
     if ($arcdata) {
         $self->render( json => $arcdata );
     } else {
-        render_api_response( $self, "metadata", "此ID不存在于服务器上." );
+        render_api_response( $self, "metadata", "This ID doesn't exist on the server." );
     }
 }
 
@@ -94,7 +94,7 @@ sub serve_file {
 
     my $self  = shift;
     my $id    = check_id_parameter( $self, "serve_file" ) || return;
-    my $redis = $self->LRR_CONF->get_redis();
+    my $redis = $self->LRR_CONF->get_redis;
 
     my $file = $redis->hget( $id, "file" );
     $redis->quit();
@@ -183,33 +183,36 @@ sub update_progress {
     # Undocumented parameter to force progress update
     my $force = $self->req->param('force') || 0;
 
-    my $redis = $self->LRR_CONF->get_redis();
+    my $redis     = $self->LRR_CONF->get_redis;
+    my $redis_cfg = $self->LRR_CONF->get_redis_config;
     my $pagecount = $redis->hget( $id, "pagecount" );
 
     if ( LANraragi::Model::Config->enable_localprogress ) {
-        render_api_response( $self, "update_progress", "在此实例上禁用服务器端进度跟踪。" );
+        render_api_response( $self, "update_progress", "Server-side Progress Tracking is disabled on this instance." );
         return;
     }
 
     # This relies on pagecount, so you can't update progress for archives that don't have a valid pagecount recorded yet.
     unless ( $pagecount || $force ) {
-        render_api_response( $self, "update_progress", "档案还没有记录的总页数。" );
+        render_api_response( $self, "update_progress", "Archive doesn't have a total page count recorded yet." );
         return;
     }
 
     # Safety-check the given page value.
     unless ( $force || ( looks_like_number($page) && $page > 0 && $page <= $pagecount ) ) {
-        render_api_response( $self, "update_progress", "无效的进度值。" );
+        render_api_response( $self, "update_progress", "Invalid progress value." );
         return;
     }
 
     # Just set the progress value.
     $redis->hset( $id, "progress", $page );
+    $redis->hset( $id, "lastreadtime", time());
 
     # Update total pages read statistic
-    $redis->incr("LRR_TOTALPAGESTAT");
+    $redis_cfg->incr("LRR_TOTALPAGESTAT");
 
     $redis->quit();
+    $redis_cfg->quit();
 
     $self->render(
         json => {

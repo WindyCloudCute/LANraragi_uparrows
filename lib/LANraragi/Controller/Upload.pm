@@ -37,7 +37,7 @@ sub process_upload {
         $filename = $filename . $ext;
 
         my $tempfile = $tempdir . '/' . $filename;
-        $file->move_to($tempfile) or die "无法移动上传的文件.";
+        $file->move_to($tempfile) or die "Couldn't move uploaded file.";
 
         # Update $tempfile to the exact reference created by the host filesystem
         # This is done by finding the first (and only) file in $tempdir.
@@ -73,7 +73,7 @@ sub process_upload {
                 name      => $file->filename,
                 type      => $uploadMime,
                 success   => 0,
-                error     => "不支持的文件类型. (" . $uploadMime . ")"
+                error     => "Unsupported File Extension. (" . $uploadMime . ")"
             }
         );
     }
