@@ -6,7 +6,7 @@ use warnings;
 use open ':std', ':encoding(UTF-8)';
 use Cwd;
 use Config;
-use utf8::all;
+use utf8;
 use feature qw(say);
 use File::Path qw(make_path);
 
@@ -90,9 +90,6 @@ my $cpanopt = "";
 if ( $ENV{HOMEBREW_FORMULA_PREFIX} ) {
     $cpanopt = " -l " . $ENV{HOMEBREW_FORMULA_PREFIX} . "/libexec";
 }
-
-#install 全局UTF-8
-install_package( "utf8::all", $cpanopt );
 
 #Load IPC::Cmd
 install_package( "IPC::Cmd",         $cpanopt );

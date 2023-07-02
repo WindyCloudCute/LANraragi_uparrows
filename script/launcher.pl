@@ -9,7 +9,7 @@ use Mojo::Server::Morbo;
 use Mojo::Server::Prefork;
 use Mojo::Util qw(extract_usage getopt);
 use File::Path qw(make_path);
-use utf8::all;
+use utf8;
 
 getopt
   'm|morbo'      => \my $morbo,

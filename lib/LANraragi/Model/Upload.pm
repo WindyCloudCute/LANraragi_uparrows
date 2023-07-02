@@ -2,7 +2,7 @@ package LANraragi::Model::Upload;
 
 use strict;
 use warnings;
-use utf8::all;
+use utf8;
 use Redis;
 use URI::Escape;
 use File::Basename;
