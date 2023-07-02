@@ -72,7 +72,7 @@ sub provide_url {
     # POST to the download endpoint to get the download URL
     # https://ksk.moe/download/11537/d951ca197324
     my $downloadURL = "https:\/\/ksk.moe\/download\/$gID\/$gToken";
-    $logger->info("Download form URL: $downloadURL, hash: $hash");
+    $logger->info("下载表单 URL: $downloadURL, hash: $hash");
 
     # First redirect should be our download URL.
     my $finalURL = URI->new();
@@ -81,7 +81,7 @@ sub provide_url {
         $response = $ua->max_redirects(0)->post( $downloadURL => form => { hash => $hash } )->result;
         $content = $response->body;
         if ( $response->code == 302 ) {
-            $logger->debug( "Redirect/location header: " . $response->headers->location );
+            $logger->debug( "重定向/位置 header: " . $response->headers->location );
             $finalURL = URI->new( $response->headers->location );
         }
     };

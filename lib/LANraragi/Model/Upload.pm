@@ -172,7 +172,7 @@ sub download_url {
     my $content_disp = $tx->result->headers->content_disposition;
     my $filename     = "Not_an_archive";                                         #placeholder;
 
-    $logger->debug("Content-Disposition Header: $content_disp");
+    $logger->debug("内容 Header: $content_disp");
     if ( $content_disp =~ /.*filename=\"(.*)\".*/gim ) {
         $filename = $1;
     } elsif ( $content_disp =~ /.*filename\*=UTF-8''(.*)/gim ) {
@@ -187,7 +187,7 @@ sub download_url {
         $filename = $1;
     }
 
-    $logger->debug("Filename: $filename");
+    $logger->debug("文件名: $filename");
 
     # remove invalid Windows chars
     $filename =~ s@[\\/:"*?<>|]+@@g;
@@ -202,7 +202,7 @@ sub download_url {
         $filename = substr( $filename, 0, -1 );
     }
     $filename = $filename . $ext;
-    $logger->debug("Filename post clean: $filename");
+    $logger->debug("处理后的文件名: $filename");
     $tx->result->save_to("$tempdir\/$filename");
 
     # Update $tempfile to the exact reference created by the host filesystem
